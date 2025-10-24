@@ -17,7 +17,7 @@ This repository contains a simple "Hello World!" program, serving as a basic exa
 ### Installation
 1. Clone the repository to your local machine:
    ```bash
-   git clone https://github.com/DeathSquat/HelloWorld-Learn.git
+   git clone https://github.com/MOHAKMEHTA2005/TheHelloWorld.git
    ```
 2. Navigate to the project directory:
    ```bash
