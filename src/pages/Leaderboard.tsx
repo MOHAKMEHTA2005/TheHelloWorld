@@ -23,7 +23,7 @@ const Leaderboard = () => {
   // Mock leaderboard data
   const leaderboardData = {
     weekly: [
-      { rank: 1, name: 'Nishchay Chaurasia', points: 2450, streak: 7, avatar: 'NC', country: '🇮🇳', change: '+5', courses: 12, hours: 45 },
+      { rank: 1, name: 'Mohak Mehta', points: 2450, streak: 7, avatar: 'NC', country: '🇮🇳', change: '+5', courses: 12, hours: 45 },
       { rank: 2, name: 'Arjun Kumar', points: 2380, streak: 12, avatar: 'AK', country: '🇮🇳', change: '-1', courses: 15, hours: 52 },
       { rank: 3, name: 'Priya Sharma', points: 2290, streak: 8, avatar: 'PS', country: '🇮🇳', change: '+2', courses: 10, hours: 38 },
       { rank: 4, name: 'Rohit Singh', points: 2180, streak: 5, avatar: 'RS', country: '🇮🇳', change: '0', courses: 9, hours: 34 },
@@ -135,7 +135,7 @@ const Leaderboard = () => {
                     <div
                       key={user.rank}
                       className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg transition-all duration-200 hover:bg-accent/20 gap-4 sm:gap-0 ${
-                        user.name === 'Nishchay Chaurasia'
+                        user.name === 'Mohak Mehta'
                           ? 'bg-golden/5 border border-golden/20'
                           : 'border border-transparent hover:border-accent/30'
                       }`}
@@ -159,7 +159,7 @@ const Leaderboard = () => {
                                 {user.name}
                               </span>
                               <span className="text-lg">{user.country}</span>
-                              {user.name === 'Nishchay Chaurasia' && (
+                              {user.name === 'Mohak Mehta' && (
                                 <Badge variant="secondary" className="bg-golden/20 text-golden border-golden/30 text-xs">
                                   You
                                 </Badge>

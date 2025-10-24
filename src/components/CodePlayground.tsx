@@ -29,7 +29,7 @@ print("Hello, World!")
 def greet(name):
     return f"Hello, {name}!"
 
-print(greet("Nishchay"))`,
+print(greet("Mohak"))`,
     javascript: `// Hello World in JavaScript
 console.log("Hello, World!");
 
@@ -38,14 +38,14 @@ function greet(name) {
     return \`Hello, \${name}!\`;
 }
 
-console.log(greet("Nishchay"));`,
+console.log(greet("Mohak"));`,
     java: `// Hello World in Java
 public class HelloWorld {
     public static void main(String[] args) {
         System.out.println("Hello, World!");
         
         // Your code here
-        String name = "Nishchay";
+        String name = "Mohak";
         System.out.println("Hello, " + name + "!");
     }
 }`,
@@ -57,7 +57,7 @@ int main() {
     std::cout << "Hello, World!" << std::endl;
     
     // Your code here
-    std::string name = "Nishchay";
+    std::string name = "Mohak";
     std::cout << "Hello, " << name << "!" << std::endl;
     
     return 0;
@@ -156,8 +156,8 @@ int main() {
         setOutput(`Live execution for ${activeLanguage === 'java' ? 'Java' : 'C++'} is not supported in this browser-based playground. A backend service is required.\n\nDisplaying simulated output:`);
         setTimeout(() => {
           const simulatedOutputs = {
-            java: `Hello, World!\nHello, Nishchay!`,
-            cpp: `Hello, World!\nHello, Nishchay!`
+            java: `Hello, World!\nHello, Mohak!`,
+            cpp: `Hello, World!\nHello, Mohak!`
           };
           setOutput(prev => `${prev}\n\n${simulatedOutputs[activeLanguage as keyof typeof simulatedOutputs]}`);
           setIsRunning(false);

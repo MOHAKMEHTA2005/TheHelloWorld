@@ -214,7 +214,7 @@ const Auth = () => {
                     <Input
                       id="signin-email"
                       type="email"
-                      placeholder="nishchay@example.com"
+                      placeholder="mohakmehta@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -296,7 +296,7 @@ const Auth = () => {
                     <Input
                       id="signup-name"
                       type="text"
-                      placeholder="Nishchay Chaurasia"
+                      placeholder="Mohak Mehta"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
@@ -307,7 +307,7 @@ const Auth = () => {
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="nishchay@example.com"
+                      placeholder="mohakmehta@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required

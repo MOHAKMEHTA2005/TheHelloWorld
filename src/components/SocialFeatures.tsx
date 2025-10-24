@@ -124,7 +124,7 @@ const SocialFeatures = () => {
       const post = {
         id: posts.length + 1,
         user: {
-          name: 'Nishchay Chaurasia',
+          name: 'Mohak Mehta',
           avatar: '/placeholder.svg',
           level: 'Intermediate',
           badge: 'Code Explorer'
