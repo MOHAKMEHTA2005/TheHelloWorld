@@ -18,9 +18,11 @@ import {
   UserPlus,
   Send
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const SocialFeatures = () => {
   const [newPost, setNewPost] = useState('');
+  const { user } = useAuth();
   const [posts, setPosts] = useState([
     {
       id: 1,
@@ -121,10 +123,12 @@ const SocialFeatures = () => {
 
   const handleSubmitPost = () => {
     if (newPost.trim()) {
+      const currentUserName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Anonymous User';
+
       const post = {
         id: posts.length + 1,
         user: {
-          name: 'Mohak Mehta',
+          name: currentUserName,
           avatar: '/placeholder.svg',
           level: 'Intermediate',
           badge: 'Code Explorer'
@@ -155,7 +159,14 @@ const SocialFeatures = () => {
             <div className="flex items-start gap-3">
               <Avatar className="w-10 h-10">
                 <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback className="bg-golden text-background">NC</AvatarFallback>
+                <AvatarFallback className="bg-golden text-background">
+                  {user?.user_metadata?.full_name
+                    ? user.user_metadata.full_name.split(' ').map(n => n[0]).join('')
+                    : user?.email
+                      ? user.email.split('@')[0].substring(0, 2).toUpperCase()
+                      : 'U'
+                  }
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-3">
                 <Textarea
