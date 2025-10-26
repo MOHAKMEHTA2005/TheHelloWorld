@@ -130,7 +130,7 @@ const SocialFeatures = () => {
         user: {
           name: currentUserName,
           avatar: '/placeholder.svg',
-          level: 'Intermediate',
+          level: 'Advanced',
           badge: 'Code Explorer'
         },
         content: newPost,
