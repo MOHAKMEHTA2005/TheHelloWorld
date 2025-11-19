@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,18 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { 
-  signInWithEmail, 
-  signUpWithEmail, 
-  signInWithGoogle, 
-  signInWithGithub,
-  getCurrentUser,
-  createUserProfile,
-  getUserProfile,
-  auth
-} from '@/integrations/firebase/client';
+import { supabase } from '@/integrations/supabase/client';
+import { createUserProfile, getUserProfile, logRegistrationError } from '@/lib/userProfile';
 import { LogIn, UserPlus, Code, Sparkles, GraduationCap, Users, Github } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { signInWithOAuth } from '@/lib/utils';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -32,14 +25,13 @@ const Auth = () => {
 
   useEffect(() => {
     // Check if user is already logged in
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         navigate('/division-selection');
       }
-    });
-    
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
+    };
+    checkUser();
   }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -48,11 +40,49 @@ const Auth = () => {
     setError('');
 
     try {
-      const userCredential = await signUpWithEmail(email, password);
-      
-      if (userCredential.user) {
-        // Create user profile in Firestore
-        await createUserProfile(userCredential.user, role);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: fullName,
+            username: email.split('@')[0],
+            role: role,
+          }
+        }
+      });
+
+      if (error) {
+        logRegistrationError(error, email);
+        if (error.message.includes('Database error') || error.message.includes('trigger')) {
+          throw new Error('Registration temporarily unavailable. Please try again in a moment.');
+        }
+        throw error;
+      }
+
+      // Verify profile creation after successful signup
+      if (data.user) {
+        // Wait for the trigger to execute
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        try {
+          const profile = await getUserProfile(data.user.id);
+          
+          if (!profile) {
+            console.log('Profile not found, attempting manual creation...');
+            await createUserProfile(data.user);
+            console.log('Profile created manually as fallback');
+          }
+        } catch (profileError: any) {
+          console.error('Profile verification failed:', profileError);
+          try {
+            await createUserProfile(data.user);
+            console.log('Fallback profile creation successful');
+          } catch (fallbackError: any) {
+            logRegistrationError(fallbackError, email, 'fallback_creation');
+          }
+        }
 
         // Redirect based on role
         if (role === 'teacher') {
@@ -64,14 +94,14 @@ const Auth = () => {
         } else {
           toast({
             title: "Account created successfully!",
-            description: "Welcome to Hello World!",
+            description: "Please check your email to verify your account.",
           });
           navigate('/division-selection');
         }
       }
-    } catch (error: unknown) {
-      console.error('Signup error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to create account');
+    } catch (error: any) {
+      logRegistrationError(error, email);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -83,13 +113,22 @@ const Auth = () => {
     setError('');
 
     try {
-      const userCredential = await signInWithEmail(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (userCredential.user) {
-        // Check user profile for role
-        const profile = await getUserProfile(userCredential.user.uid);
-        
-        if (profile?.role === 'teacher') {
+      if (error) throw error;
+
+      // Check user role from secure roles table and redirect accordingly
+      if (data.user) {
+        const { data: userRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (userRole?.role === 'teacher') {
           toast({
             title: "Welcome back, Teacher!",
             description: "Redirecting to your dashboard...",
@@ -103,9 +142,8 @@ const Auth = () => {
           navigate('/division-selection');
         }
       }
-    } catch (error: unknown) {
-      console.error('Signin error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sign in');
+    } catch (error: any) {
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -116,41 +154,21 @@ const Auth = () => {
     setError('');
 
     try {
-      let userCredential;
-      if (provider === 'google') {
-        userCredential = await signInWithGoogle();
-      } else {
-        userCredential = await signInWithGithub();
-      }
+      // Use current origin to ensure it redirects back to this website
+      const redirectUrl = `${window.location.origin}/division-selection`;
+      console.log('OAuth redirect URL:', redirectUrl);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
 
-      if (userCredential.user) {
-        // Check if user profile exists, if not create one
-        let profile = await getUserProfile(userCredential.user.uid);
-        
-        if (!profile) {
-          // Create profile with default learner role
-          await createUserProfile(userCredential.user, 'learner');
-          profile = await getUserProfile(userCredential.user.uid);
-        }
-
-        // Redirect based on role
-        if (profile?.role === 'teacher') {
-          toast({
-            title: "Welcome back, Teacher!",
-            description: "Redirecting to your dashboard...",
-          });
-          navigate('/teacher/dashboard');
-        } else {
-          toast({
-            title: "Welcome back!",
-            description: "You have been logged in successfully.",
-          });
-          navigate('/division-selection');
-        }
-      }
-    } catch (error: unknown) {
+      if (error) throw error;
+    } catch (error: any) {
       console.error('OAuth error:', error);
-      setError(error instanceof Error ? error.message : `Failed to sign in with ${provider}`);
+      setError(error.message);
       setLoading(false);
     }
   };
@@ -186,7 +204,7 @@ const Auth = () => {
                   Welcome Back
                 </CardTitle>
                 <CardDescription>
-                  Sign in to continue your learning journey
+                  Continue your coding journey where you left off
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -207,7 +225,6 @@ const Auth = () => {
                     <Input
                       id="signin-password"
                       type="password"
-                      placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -227,7 +244,7 @@ const Auth = () => {
                       <span className="w-full border-t border-border/50" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Or sign in with</span>
+                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
                     </div>
                   </div>
 
@@ -301,7 +318,7 @@ const Auth = () => {
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Minimum 8 characters"
+                      placeholder="Minimum 6 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -310,7 +327,7 @@ const Auth = () => {
                   </div>
                   <div className="space-y-3">
                     <Label>I am a</Label>
-                    <RadioGroup value={role} onValueChange={(value: 'learner' | 'teacher') => setRole(value)}>
+                    <RadioGroup value={role} onValueChange={(value: any) => setRole(value)}>
                       <div className="flex items-center space-x-2 bg-card/30 p-3 rounded-lg border border-border/30 hover:border-golden/30 transition-colors">
                         <RadioGroupItem value="learner" id="learner" />
                         <Label htmlFor="learner" className="flex items-center gap-2 cursor-pointer flex-1">

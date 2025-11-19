@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/integrations/firebase/client';
 
 const DivisionSelection = () => {
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
@@ -25,17 +26,14 @@ const DivisionSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'Developer';
+  const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Developer';
 
   useEffect(() => {
     // Check if user is a teacher and redirect accordingly
     const checkUserRole = async () => {
       if (user) {
-        const { data: userRole } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const userRoleDoc = await getDoc(doc(db, 'user_roles', user.uid));
+      const userRole = userRoleDoc.exists() ? userRoleDoc.data() : null;
 
         if (userRole?.role === 'teacher') {
           navigate('/teacher/dashboard');

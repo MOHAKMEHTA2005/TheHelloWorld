@@ -1,31 +1,28 @@
 import React from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { signInWithOAuth } from "@/lib/utils";
-
+import { signInWithGoogle, signOut as firebaseSignOut } from "@/integrations/firebase/client";
 
 const GoogleAuth: React.FC = () => {
-  const signInWithGoogle = async (): Promise<void> => {
-    const { data, error } = await signInWithOAuth('google');
-
-    if (error) {
-      console.error("Error signing in:", error.message);
-    } else {
-      console.log("Redirecting to Google Auth:", data);
+  const signInWithGoogleHandler = async (): Promise<void> => {
+    try {
+      const result = await signInWithGoogle();
+      console.log("Google Auth successful:", result);
+    } catch (error) {
+      console.error("Error signing in:", error instanceof Error ? error.message : error);
     }
   };
 
   const signOut = async (): Promise<void> => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error.message);
-    } else {
+    try {
+      await firebaseSignOut();
       console.log("User signed out successfully");
+    } catch (error) {
+      console.error("Error signing out:", error instanceof Error ? error.message : error);
     }
   };
 
   return (
     <div>
-      <button onClick={signInWithGoogle}>Sign in with Google</button>
+      <button onClick={signInWithGoogleHandler}>Sign in with Google</button>
       <button onClick={signOut}>Sign out</button>
     </div>
   );

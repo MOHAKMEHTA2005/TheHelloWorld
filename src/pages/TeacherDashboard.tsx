@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/integrations/firebase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,70 @@ const TeacherDashboard = () => {
   const [isTeacher, setIsTeacher] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
+  const fetchStudents = useCallback(async () => {
+    try {
+      // Fetch students assigned to this teacher
+      const teacherStudentsQuery = query(
+        collection(db, 'teacher_students'),
+        where('teacher_id', '==', user?.uid)
+      );
+      const assignedStudentDocs = await getDocs(teacherStudentsQuery);
+      const assignedStudentIds = assignedStudentDocs.docs.map(doc => doc.data().student_id);
+
+      const studentIds = assignedStudentIds || [];
+
+      if (studentIds.length > 0) {
+        const studentProfilesQuery = query(
+          collection(db, 'user_profiles'),
+          where('user_id', 'in', studentIds)
+        );
+        const studentDocs = await getDocs(studentProfilesQuery);
+        const studentsData: StudentProgress[] = studentDocs.docs.map(doc => ({ 
+          id: doc.id,
+          user_id: doc.data().user_id || '',
+          full_name: doc.data().full_name || '',
+          email: doc.data().email || '',
+          experience_points: doc.data().experience_points || 0,
+          learning_streak: doc.data().learning_streak || 0,
+          total_study_hours: doc.data().total_study_hours || 0,
+          problems_solved: doc.data().problems_solved || 0,
+          current_level: doc.data().current_level || '',
+          last_activity_at: doc.data().last_activity_at || ''
+        }));
+        setStudents(studentsData);
+      }
+
+      // Fetch all learners for assignment dialog
+      const learnersQuery = query(
+        collection(db, 'user_profiles'),
+        where('role', '==', 'learner')
+      );
+      const learnerDocs = await getDocs(learnersQuery);
+      const allLearners: StudentProgress[] = learnerDocs.docs.map(doc => ({ 
+        id: doc.id,
+        user_id: doc.data().user_id || '',
+        full_name: doc.data().full_name || '',
+        email: doc.data().email || '',
+        experience_points: doc.data().experience_points || 0,
+        learning_streak: doc.data().learning_streak || 0,
+        total_study_hours: doc.data().total_study_hours || 0,
+        problems_solved: doc.data().problems_solved || 0,
+        current_level: doc.data().current_level || '',
+        last_activity_at: doc.data().last_activity_at || ''
+      }));
+      setAllStudents(allLearners);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load student data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [user, toast]);
+
   useEffect(() => {
     const checkTeacherStatus = async () => {
       if (!user) {
@@ -41,11 +106,9 @@ const TeacherDashboard = () => {
         return;
       }
 
-      const { data: userRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Check if user is a teacher
+      const userRoleDoc = await getDoc(doc(db, 'user_roles', user.uid));
+      const userRole = userRoleDoc.exists() ? userRoleDoc.data() : null;
 
       if (userRole?.role !== 'teacher') {
         navigate('/division-selection');
@@ -57,62 +120,14 @@ const TeacherDashboard = () => {
     };
 
     checkTeacherStatus();
-  }, [user, navigate]);
-
-  const fetchStudents = async () => {
-    try {
-      // Fetch students assigned to this teacher
-      const { data: assignedStudentIds, error: assignError } = await supabase
-        .from('teacher_students')
-        .select('student_id')
-        .eq('teacher_id', user?.id);
-
-      if (assignError) throw assignError;
-
-      const studentIds = assignedStudentIds?.map(s => s.student_id) || [];
-
-      if (studentIds.length > 0) {
-        const { data, error } = await supabase
-          .from('Hello-World Login')
-          .select('*')
-          .in('user_id', studentIds)
-          .order('experience_points', { ascending: false });
-
-        if (error) throw error;
-        setStudents(data || []);
-      }
-
-      // Fetch all learners for assignment dialog
-      const { data: allLearners, error: learnersError } = await supabase
-        .from('Hello-World Login')
-        .select('*')
-        .eq('role', 'learner')
-        .order('full_name');
-
-      if (learnersError) throw learnersError;
-      setAllStudents(allLearners || []);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load student data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, navigate, fetchStudents]);
 
   const assignStudent = async (studentId: string) => {
     try {
-      const { error } = await supabase
-        .from('teacher_students')
-        .insert({
-          teacher_id: user?.id,
-          student_id: studentId,
-        });
-
-      if (error) throw error;
+      await addDoc(collection(db, 'teacher_students'), {
+        teacher_id: user?.uid,
+        student_id: studentId,
+      });
 
       toast({
         title: "Success",
@@ -121,10 +136,10 @@ const TeacherDashboard = () => {
       
       fetchStudents();
       setShowAddDialog(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to assign student",
+        description: error instanceof Error ? error.message : "Failed to assign student",
         variant: "destructive",
       });
     }
@@ -132,13 +147,16 @@ const TeacherDashboard = () => {
 
   const removeStudent = async (studentId: string) => {
     try {
-      const { error } = await supabase
-        .from('teacher_students')
-        .delete()
-        .eq('teacher_id', user?.id)
-        .eq('student_id', studentId);
-
-      if (error) throw error;
+      const teacherStudentsQuery = query(
+        collection(db, 'teacher_students'),
+        where('teacher_id', '==', user?.uid),
+        where('student_id', '==', studentId)
+      );
+      const querySnapshot = await getDocs(teacherStudentsQuery);
+      
+      querySnapshot.forEach(async (doc) => {
+        await deleteDoc(doc.ref);
+      });
 
       toast({
         title: "Success",
@@ -146,10 +164,10 @@ const TeacherDashboard = () => {
       });
       
       fetchStudents();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to remove student",
+        description: error instanceof Error ? error.message : "Failed to remove student",
         variant: "destructive",
       });
     }
@@ -160,223 +178,189 @@ const TeacherDashboard = () => {
       beginner: 'bg-blue-500/20 text-blue-400',
       intermediate: 'bg-green-500/20 text-green-400',
       advanced: 'bg-purple-500/20 text-purple-400',
-      expert: 'bg-golden/20 text-golden',
     };
-    return colors[level] || colors.beginner;
+    return colors[level] || 'bg-gray-500/20 text-gray-400';
   };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-golden mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading student data...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isTeacher) {
-    return null;
+    return <div>Loading...</div>;
   }
 
-  const totalStudents = students.length;
-  const avgExperience = Math.round(students.reduce((sum, s) => sum + (s.experience_points || 0), 0) / totalStudents);
-  const totalProblemsolved = students.reduce((sum, s) => sum + (s.problems_solved || 0), 0);
-  const avgStreak = Math.round(students.reduce((sum, s) => sum + (s.learning_streak || 0), 0) / totalStudents);
-
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <TeacherNavbar />
-      <div className="min-h-screen bg-background pt-16">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-2">Student Progress Overview</h1>
-            <p className="text-muted-foreground">Monitor and track student progress across all courses</p>
-          </div>
+      
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Teacher Dashboard</h1>
+          <p className="text-gray-300">Manage your students and track their progress</p>
+        </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Total Students
-              </CardTitle>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Total Students</CardTitle>
+              <Users className="h-4 w-4 text-golden" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-golden">{totalStudents}</div>
+              <div className="text-2xl font-bold text-white">{students.length}</div>
+              <p className="text-xs text-gray-400">Active learners</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Avg Experience
-              </CardTitle>
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Avg. Progress</CardTitle>
+              <TrendingUp className="h-4 w-4 text-golden" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-golden">{avgExperience}</div>
+              <div className="text-2xl font-bold text-white">
+                {students.length > 0 
+                  ? Math.round(students.reduce((acc, s) => acc + s.experience_points, 0) / students.length)
+                  : 0}
+              </div>
+              <p className="text-xs text-gray-400">Experience points</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Award className="w-4 h-4" />
-                Problems Solved
-              </CardTitle>
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Completion Rate</CardTitle>
+              <Award className="h-4 w-4 text-golden" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-golden">{totalProblemsolved}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                Avg Streak
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-golden">{avgStreak} days</div>
+              <div className="text-2xl font-bold text-white">
+                {students.length > 0 
+                  ? Math.round((students.filter(s => s.problems_solved > 10).length / students.length) * 100)
+                  : 0}%
+              </div>
+              <p className="text-xs text-gray-400">Students with 10+ problems solved</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Students Table */}
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+        <Card className="bg-gray-800/50 border-gray-700">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>My Students</CardTitle>
-                <CardDescription>Students assigned to your class</CardDescription>
+                <CardTitle className="text-white">Your Students</CardTitle>
+                <CardDescription className="text-gray-400">
+                  View and manage your assigned students
+                </CardDescription>
               </div>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Assign Student
+                  <Button className="bg-golden hover:bg-golden/90 text-gray-900">
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Add Student
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="bg-gray-800 border-gray-700">
                   <DialogHeader>
-                    <DialogTitle>Assign Students to Your Class</DialogTitle>
-                    <DialogDescription>
-                      Select students to add to your class roster
+                    <DialogTitle className="text-white">Assign New Student</DialogTitle>
+                    <DialogDescription className="text-gray-400">
+                      Select a student to add to your class
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-2">
+                  <div className="max-h-96 overflow-y-auto">
                     {allStudents
-                      .filter(s => !students.find(assigned => assigned.user_id === s.user_id))
+                      .filter(student => !students.some(s => s.user_id === student.user_id))
                       .map((student) => (
                         <div
                           key={student.id}
-                          className="flex items-center justify-between p-3 border border-border/50 rounded-lg hover:bg-accent/50 transition-colors"
+                          className="flex items-center justify-between p-3 rounded-lg bg-gray-700/50 mb-2"
                         >
-                          <div className="flex-1">
-                            <p className="font-medium">{student.full_name || 'Anonymous'}</p>
-                            <p className="text-sm text-muted-foreground">{student.email}</p>
+                          <div>
+                            <p className="text-white font-medium">{student.full_name}</p>
+                            <p className="text-gray-400 text-sm">{student.email}</p>
                           </div>
                           <Button
                             size="sm"
                             onClick={() => assignStudent(student.user_id)}
+                            className="bg-golden hover:bg-golden/90 text-gray-900"
                           >
-                            <UserPlus className="w-4 h-4 mr-2" />
                             Assign
                           </Button>
                         </div>
                       ))}
-                    {allStudents.filter(s => !students.find(assigned => assigned.user_id === s.user_id)).length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">
-                        All students are already assigned to your class
-                      </p>
-                    )}
                   </div>
                 </DialogContent>
               </Dialog>
             </div>
           </CardHeader>
           <CardContent>
-            {students.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">No students assigned yet</p>
-                <Button onClick={() => setShowAddDialog(true)}>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Assign Your First Student
+            {loading ? (
+              <div className="text-center py-8 text-gray-400">Loading students...</div>
+            ) : students.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <BookOpen className="mx-auto h-12 w-12 text-gray-600 mb-4" />
+                <p className="text-lg font-medium mb-2">No students assigned yet</p>
+                <p className="text-sm mb-4">Start by adding students to your class</p>
+                <Button
+                  onClick={() => setShowAddDialog(true)}
+                  className="bg-golden hover:bg-golden/90 text-gray-900"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Your First Student
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead className="text-right">XP</TableHead>
-                      <TableHead className="text-right">Streak</TableHead>
-                      <TableHead className="text-right">Problems</TableHead>
-                      <TableHead className="text-right">Study Hours</TableHead>
-                      <TableHead>Last Active</TableHead>
-                      <TableHead></TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-700">
+                    <TableHead className="text-gray-300">Student</TableHead>
+                    <TableHead className="text-gray-300">Level</TableHead>
+                    <TableHead className="text-gray-300">Experience</TableHead>
+                    <TableHead className="text-gray-300">Problems Solved</TableHead>
+                    <TableHead className="text-gray-300">Learning Streak</TableHead>
+                    <TableHead className="text-gray-300">Last Activity</TableHead>
+                    <TableHead className="text-gray-300 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {students.map((student) => (
+                    <TableRow key={student.id} className="border-gray-700">
+                      <TableCell>
+                        <div>
+                          <p className="text-white font-medium">{student.full_name}</p>
+                          <p className="text-gray-400 text-sm">{student.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getLevelColor(student.current_level)}>
+                          {student.current_level}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-white">{student.experience_points}</TableCell>
+                      <TableCell className="text-white">{student.problems_solved}</TableCell>
+                      <TableCell className="text-white">{student.learning_streak} days</TableCell>
+                      <TableCell className="text-gray-400">
+                        {student.last_activity_at 
+                          ? new Date(student.last_activity_at).toLocaleDateString()
+                          : 'Never'
+                        }
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeStudent(student.user_id)}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.full_name || 'Anonymous'}</TableCell>
-                        <TableCell className="text-muted-foreground">{student.email}</TableCell>
-                        <TableCell>
-                          <Badge className={getLevelColor(student.current_level || 'beginner')}>
-                            {student.current_level || 'beginner'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-golden">
-                          {student.experience_points || 0}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="flex items-center justify-end gap-1">
-                            🔥 {student.learning_streak || 0}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">{student.problems_solved || 0}</TableCell>
-                        <TableCell className="text-right">{student.total_study_hours || 0}h</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {student.last_activity_at ? formatDate(student.last_activity_at) : 'Never'}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeStudent(student.user_id)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
       </div>
     </div>
-    </>
   );
 };
 

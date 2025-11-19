@@ -22,7 +22,7 @@ import Pricing from "./pages/Pricing";
 import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import DivisionSelection from "./pages/DivisionSelection";
+import DivisionSelection from "./pages/DivisionSelection1";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AcademicGames from "./sections/academic/pages/AcademicGames";
 
@@ -33,7 +33,6 @@ import AcademicChallenges from "./sections/academic/pages/AcademicChallenges";
 // Coding Section Imports
 import CodingDashboard from "./sections/coding/pages/CodingDashboard";
 import CodingLanguages from "./sections/coding/pages/CodingLanguages";
-import { supabase } from './utils/supabase'
 
 const queryClient = new QueryClient();
 
@@ -249,107 +248,3 @@ const App = () => {
 };
 
 export default App;
-
-// Add this new component for the Supabase todos
-const SupabaseTodos = () => {
-  const [todos, setTodos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function getTodos() {
-      try {
-        const { data: todos, error } = await supabase.from('todos').select()
-        
-        if (error) {
-          console.error('Error fetching todos:', error)
-          setTodos([])
-        } else if (todos && todos.length > 0) {
-          setTodos(todos)
-        }
-        
-        setLoading(false)
-      } catch (error) {
-        console.error('Error in getTodos:', error)
-        setLoading(false)
-      }
-    }
-
-    getTodos()
-  }, [])
-
-  if (loading) {
-    return <div>Loading todos...</div>
-  }
-
-  return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold mb-2">Supabase Todos</h3>
-      {todos.length === 0 ? (
-        <p>No todos found</p>
-      ) : (
-        <ul className="space-y-2">
-          {todos.map((todo) => (
-            <li key={todo.id} className="p-2 bg-gray-100 rounded">
-              {todo.title || todo.name || JSON.stringify(todo)}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-// Add these imports after existing imports
-// Add this new component for the Supabase "Room-Buddies Login" table
-const RoomBuddiesLoginComponent = () => {
-  const [logins, setLogins] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function getLogins() {
-      try {
-        const { data: logins, error } = await supabase.from('Room-Buddies Login').select()
-        
-        if (error) {
-          console.error('Error fetching logins:', error)
-          setLogins([])
-        } else if (logins && logins.length > 0) {
-          setLogins(logins)
-        }
-        
-        setLoading(false)
-      } catch (error) {
-        console.error('Error in getLogins:', error)
-        setLoading(false)
-      }
-    }
-
-    getLogins()
-  }, [])
-
-  if (loading) {
-    return <div>Loading login data...</div>
-  }
-
-  return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold mb-2">Room-Buddies Login Data</h3>
-      {logins.length === 0 ? (
-        <p>No login data found</p>
-      ) : (
-        <ul className="space-y-2">
-          {logins.map((login) => (
-            <li key={login.id} className="p-2 bg-gray-100 rounded">
-              {login.email || login.username || JSON.stringify(login)}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-// You can integrate this component into your existing routes
-// For example, add it to your Dashboard or create a new route
-
-<Route path="/todos" element={<SupabaseTodos />} />

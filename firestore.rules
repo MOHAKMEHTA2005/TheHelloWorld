@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection - users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAuthenticated() && 
+        isOwner(userId) || 
+        belongsToTeacher(userId);
+      
+      // Allow creation during signup
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId &&
+        request.resource.data.keys().hasAll(['uid', 'email', 'role', 'created_at']);
+    }
+    
+    // User roles collection - users can read/write their own role
+    match /user_roles/{userId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId &&
+        request.resource.data.keys().hasAll(['role', 'created_at']);
+    }
+    
+    // Teacher-students collection
+    match /teacher_students/{docId} {
+      // Helper to check if user is teacher in this relationship
+      function isTeacher() {
+        return isAuthenticated() && 
+          (resource.data.teacher_id == request.auth.uid || 
+           request.resource.data.teacher_id == request.auth.uid);
+      }
+      
+      // Helper to check if user is student in this relationship
+      function isStudent() {
+        return isAuthenticated() && 
+          (resource.data.student_id == request.auth.uid || 
+           request.resource.data.student_id == request.auth.uid);
+      }
+      
+      // Helper to check if user belongs to a teacher
+      function belongsToTeacher(studentId) {
+        return isAuthenticated() && 
+          exists(/databases/$(database)/documents/teacher_students/$(docId)) &&
+          get(/databases/$(database)/documents/teacher_students/$(docId)).data.teacher_id == request.auth.uid &&
+          get(/databases/$(database)/documents/teacher_students/$(docId)).data.student_id == studentId;
+      }
+      
+      // Teachers and students can read their relationships
+      allow read: if isTeacher() || isStudent();
+      
+      // Teachers can create relationships with students
+      // Students can request to join teachers
+      allow create: if isAuthenticated() && 
+        (request.resource.data.teacher_id == request.auth.uid || 
+         request.resource.data.student_id == request.auth.uid) &&
+        request.resource.data.keys().hasAll(['teacher_id', 'student_id', 'created_at', 'status']);
+      
+      // Teachers and students can update their relationships
+      allow update: if isTeacher() || isStudent();
+      
+      // Teachers and students can delete their relationships
+      allow delete: if isTeacher() || isStudent();
+    }
+    
+    }
+}
