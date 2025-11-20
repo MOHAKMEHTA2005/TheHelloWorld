@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -25,7 +25,8 @@ import {
   CheckCircle,
   Flame,
   Settings,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import StudyTimer from '@/components/StudyTimer';
@@ -40,14 +41,84 @@ import DetailedProgress from '@/components/DetailedProgress';
 import LearningPath from '@/components/LearningPath';
 import MathematicsDashboard from '@/components/MathematicsDashboard';
 
+type DivisionType = '6-12' | 'coding-era';
+
+interface DivisionInfo {
+  name: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}
+
+interface LearningStat {
+  title: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  change: string;
+  bg: string;
+}
+
+interface Course {
+  id: number;
+  title: string;
+  language: string;
+  progress: number;
+  nextLesson: string;
+  difficulty: string;
+  estimatedTime: string;
+}
+
+interface Achievement {
+  title: string;
+  icon: string;
+  earned: string;
+}
+
+interface ScheduleItem {
+  time: string;
+  task: string;
+  type: 'lesson' | 'practice' | 'quiz' | 'other';
+}
+
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [currentStreak, setCurrentStreak] = useState(7);
+  const [isValidDivision, setIsValidDivision] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Get and validate division
+  const currentDivision = (location.state?.division || 'coding-era') as DivisionType;
+  
+  // Get user name with proper loading state
   const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Developer';
   
-  // Get division from navigation state or default to 'coding-era'
-  const currentDivision = location.state?.division || 'coding-era';
+  useEffect(() => {
+    // Validate division
+    if (!['6-12', 'coding-era'].includes(currentDivision)) {
+      console.warn(`Invalid division: ${currentDivision}. Defaulting to 'coding-era'`);
+      setIsValidDivision(false);
+      navigate('/dashboard', { state: { division: 'coding-era' }, replace: true });
+    } else {
+      setIsValidDivision(true);
+    }
+    
+    // Simulate loading data
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, [currentDivision, navigate]);
+  
+  // Show loading state
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-12 h-12 animate-spin text-golden" />
+      </div>
+    );
+  }
   
   const divisionInfo = {
     '6-12': {
@@ -158,6 +229,27 @@ const Dashboard = () => {
     { time: '2:00 PM', task: 'Java Practice Problems', type: 'practice' },
     { time: '4:00 PM', task: 'C Programming Quiz', type: 'quiz' }
   ];
+
+  // Show error for invalid division
+  if (!isValidDivision) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="text-xl">Section Not Found</CardTitle>
+            <CardDescription>
+              The requested section is not available. You've been redirected to the default section.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={() => navigate('/division-selection')}>
+              Choose a Section
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Show Mathematics Dashboard for 6-12 Academic Section
   if (currentDivision === '6-12') {
