@@ -26,22 +26,11 @@ const DivisionSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Developer';
+  const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Guest';
 
   useEffect(() => {
-    // Check if user is a teacher and redirect accordingly
-    const checkUserRole = async () => {
-      if (user) {
-        const userRoleDoc = await getDoc(doc(db, 'user_roles', user.uid));
-      const userRole = userRoleDoc.exists() ? userRoleDoc.data() : null;
-
-        if (userRole?.role === 'teacher') {
-          navigate('/teacher/dashboard');
-        }
-      }
-    };
-
-    checkUserRole();
+    // No need to check for teacher role here as it's handled in the ProtectedRoute
+    // This allows the component to be used by both logged-in and guest users
   }, [user, navigate]);
 
   const divisions = [
@@ -97,20 +86,23 @@ const DivisionSelection = () => {
     setSelectedDivision(divisionId);
 
     try {
-      // Here you could save the division preference to the user's profile
-      // For now, we'll just navigate to the dashboard with the division context
-      
+      const selectedDivision = divisions.find(d => d.id === divisionId);
+      if (!selectedDivision) return;
+
+      // Show welcome message
       toast({
-        title: "Division Selected!",
-        description: `Welcome to ${divisions.find(d => d.id === divisionId)?.title}! Let's start learning.`,
+        title: user ? "Division Selected!" : "Welcome to Guest Mode!",
+        description: user 
+          ? `Welcome to ${selectedDivision.title}! Let's start learning.`
+          : `You're in guest mode. Sign up to save your progress!`,
       });
 
-      // Navigate to dashboard with division context
+      // Navigate to the appropriate dashboard
       setTimeout(() => {
         if (divisionId === '6-12') {
-          navigate('/academic/dashboard');
+          navigate(user ? '/academic/dashboard' : '/academic/learning');
         } else {
-          navigate('/coding/dashboard');
+          navigate(user ? '/coding/dashboard' : '/coding/languages');
         }
       }, 1000);
     } catch (error) {
@@ -135,11 +127,30 @@ const DivisionSelection = () => {
             <span className="text-2xl font-bold text-foreground">Hello World</span>
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-4">
-            Welcome, <span className="text-golden">{userName}!</span> 🎉
+            Welcome{user ? ', ' : ''} <span className="text-golden">{userName}!</span> {user ? '🎉' : '👋'}
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Choose your learning path to get started with a personalized coding experience
+            {user 
+              ? 'Choose your learning path to get started with a personalized coding experience'
+              : 'Start exploring in guest mode or sign up to save your progress'}
           </p>
+          {!user && (
+            <div className="mt-4">
+              <Button 
+                variant="outline" 
+                className="mr-2"
+                onClick={() => navigate('/auth?mode=signup')}
+              >
+                Sign Up
+              </Button>
+              <Button 
+                variant="ghost"
+                onClick={() => navigate('/auth?mode=login')}
+              >
+                Log In
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Division Cards */}

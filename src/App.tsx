@@ -22,7 +22,7 @@ import Pricing from "./pages/Pricing";
 import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import DivisionSelection from "./pages/DivisionSelection1";
+import DivisionSelection from "./pages/DivisionSelection";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AcademicGames from "./sections/academic/pages/AcademicGames";
 
@@ -82,9 +82,7 @@ const AppContent = () => {
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/division-selection" element={
-          <ProtectedRoute requireDivision={false}>
-            <DivisionSelection />
-          </ProtectedRoute>
+          <DivisionSelection />
         } />
         
         {/* Academic Section Routes */}
