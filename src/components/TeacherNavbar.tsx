@@ -53,7 +53,7 @@ const TeacherNavbar = () => {
 
             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">{user?.user_metadata?.full_name || user?.email}</span>
+              <span className="hidden sm:inline">{user?.displayName || user?.email}</span>
             </div>
 
             <Button 

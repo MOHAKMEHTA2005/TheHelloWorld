@@ -44,7 +44,7 @@ const AcademicDashboard = () => {
   const { user } = useAuth();
   const [currentStreak, setCurrentStreak] = useState(12);
   const [activeTab, setActiveTab] = useState('overview');
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'Student';
+  const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Student';
 
   // Academic-specific stats
   const academicStats = [

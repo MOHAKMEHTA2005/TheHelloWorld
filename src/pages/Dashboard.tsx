@@ -44,7 +44,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const location = useLocation();
   const [currentStreak, setCurrentStreak] = useState(7);
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'Developer';
+  const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Developer';
   
   // Get division from navigation state or default to 'coding-era'
   const currentDivision = location.state?.division || 'coding-era';

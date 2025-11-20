@@ -123,7 +123,7 @@ const SocialFeatures = () => {
 
   const handleSubmitPost = () => {
     if (newPost.trim()) {
-      const currentUserName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Anonymous User';
+      const currentUserName = user?.displayName || user?.email?.split('@')[0] || 'Anonymous User';
 
       const post = {
         id: posts.length + 1,
@@ -160,8 +160,8 @@ const SocialFeatures = () => {
               <Avatar className="w-10 h-10">
                 <AvatarImage src="/placeholder.svg" />
                 <AvatarFallback className="bg-golden text-background">
-                  {user?.user_metadata?.full_name
-                    ? user.user_metadata.full_name.split(' ').map(n => n[0]).join('')
+                  {user?.displayName
+                    ? user.displayName.split(' ').map(n => n[0]).join('')
                     : user?.email
                       ? user.email.split('@')[0].substring(0, 2).toUpperCase()
                       : 'U'

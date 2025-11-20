@@ -98,7 +98,7 @@ const AcademicNavbar = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-blue-500/10">
                   <User className="w-4 h-4" />
-                  <span className="max-w-24 truncate">{user?.user_metadata?.full_name || user?.email}</span>
+                  <span className="max-w-24 truncate">{user?.displayName || user?.email}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -163,7 +163,7 @@ const AcademicNavbar = () => {
                 <div className="flex items-center justify-between px-3 py-2">
                   <div className="flex items-center space-x-2">
                     <User className="w-8 h-8 p-1 rounded-full bg-blue-500/20 text-blue-300" />
-                    <span className="font-medium truncate max-w-32">{user?.user_metadata?.full_name || user?.email}</span>
+                    <span className="font-medium truncate max-w-32">{user?.displayName || user?.email}</span>
                   </div>
                   <div className="flex items-center space-x-2 text-blue-400 text-sm">
                     <Award className="w-4 h-4" />

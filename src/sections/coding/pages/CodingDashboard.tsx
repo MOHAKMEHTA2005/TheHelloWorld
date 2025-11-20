@@ -40,7 +40,7 @@ import LearningPath from '@/components/LearningPath';
 const CodingDashboard = () => {
   const { user } = useAuth();
   const [currentStreak, setCurrentStreak] = useState(7);
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'Developer';
+  const userName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Developer';
 
   const learningStats = [
     {
